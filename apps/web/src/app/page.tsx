@@ -43,7 +43,7 @@ export default function LandingPage() {
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#architecture" className="hover:text-white transition-colors">Architecture</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="https://github.com" className="hover:text-white transition-colors">GitHub</a>
+            <a href="https://github.com/burgerbeast7/nexusflow" className="hover:text-white transition-colors">GitHub</a>
           </div>
           <div className="flex items-center gap-3">
             <a href="/login" className="btn-secondary text-sm">Sign In</a>
@@ -242,7 +242,7 @@ export default function LandingPage() {
               <a href="/dashboard" className="btn-primary text-base px-8 py-3.5 rounded-2xl">
                 Launch App <ArrowRight className="w-5 h-5 ml-2" />
               </a>
-              <a href="https://github.com" className="btn-secondary text-base px-8 py-3.5 rounded-2xl">
+              <a href="https://github.com/burgerbeast7/nexusflow" className="btn-secondary text-base px-8 py-3.5 rounded-2xl">
                 ⭐ Star on GitHub
               </a>
             </div>
