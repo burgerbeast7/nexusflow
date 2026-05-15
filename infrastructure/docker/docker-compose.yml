@@ -1,0 +1,142 @@
+version: '3.9'
+
+services:
+  # ── Infrastructure ─────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexusflow-postgres
+    environment:
+      POSTGRES_USER: nexusflow
+      POSTGRES_PASSWORD: nexusflow_secret
+      POSTGRES_DB: nexusflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexusflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nexusflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Services ───────────────────────────────────
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: nexusflow-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - API_GATEWAY_PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_PORT=3001
+      - USER_SERVICE_PORT=3002
+      - WORKFLOW_SERVICE_PORT=3003
+      - AI_SERVICE_PORT=3004
+      - NOTIFICATION_SERVICE_PORT=3005
+      - ANALYTICS_SERVICE_PORT=3006
+      - JWT_SECRET=nexusflow-jwt-secret-dev
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: services/auth-service/Dockerfile
+    container_name: nexusflow-auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - AUTH_SERVICE_PORT=3001
+      - DATABASE_URL=postgresql://nexusflow:nexusflow_secret@postgres:5432/nexusflow
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=nexusflow-jwt-secret-dev
+      - JWT_REFRESH_SECRET=nexusflow-refresh-secret-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  workflow-service:
+    build:
+      context: ../..
+      dockerfile: services/workflow-service/Dockerfile
+    container_name: nexusflow-workflow-service
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - WORKFLOW_SERVICE_PORT=3003
+      - DATABASE_URL=postgresql://nexusflow:nexusflow_secret@postgres:5432/nexusflow
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: services/notification-service/Dockerfile
+    container_name: nexusflow-notification-service
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - NOTIFICATION_SERVICE_PORT=3005
+      - REDIS_URL=redis://redis:6379
+
+  analytics-service:
+    build:
+      context: ../..
+      dockerfile: services/analytics-service/Dockerfile
+    container_name: nexusflow-analytics-service
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=development
+      - ANALYTICS_SERVICE_PORT=3006
+      - REDIS_URL=redis://redis:6379
+
+  # ── Monitoring ─────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: nexusflow-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: nexusflow-grafana
+    ports:
+      - "3200:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  NONE
+}
+
+enum TaskType {
+  FEATURE
+  BUG
+  IMPROVEMENT
+  CHORE
+  SPIKE
+}
+
+enum SprintStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNING)
+  color       String        @default("#6366f1")
+  icon        String        @default("folder")
+  ownerId     String        @map("owner_id")
+  teamId      String?       @map("team_id")
+  startDate   DateTime?     @map("start_date")
+  targetDate  DateTime?     @map("target_date")
+  
+  tasks       Task[]
+  sprints     Sprint[]
+  
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@index([teamId])
+  @@index([status])
+  @@map("projects")
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  identifier  String       @unique // e.g., "NF-123"
+  title       String
+  description String?
+  status      TaskStatus   @default(BACKLOG)
+  priority    TaskPriority @default(MEDIUM)
+  type        TaskType     @default(FEATURE)
+  
+  projectId   String       @map("project_id")
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  sprintId    String?      @map("sprint_id")
+  sprint      Sprint?      @relation(fields: [sprintId], references: [id])
+  
+  assigneeId  String?      @map("assignee_id")
+  reporterId  String       @map("reporter_id")
+  
+  labels      String[]     @default([])
+  storyPoints Int?         @map("story_points")
+  position    Float        @default(0) // For ordering within columns
+  
+  parentId    String?      @map("parent_id")
+  parent      Task?        @relation("subtasks", fields: [parentId], references: [id])
+  subtasks    Task[]       @relation("subtasks")
+  
+  comments    Comment[]
+  activities  Activity[]
+  
+  dueDate     DateTime?    @map("due_date")
+  completedAt DateTime?    @map("completed_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([sprintId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([priority])
+  @@index([identifier])
+  @@map("tasks")
+}
+
+model Sprint {
+  id        String       @id @default(uuid())
+  name      String
+  projectId String       @map("project_id")
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status    SprintStatus @default(PLANNING)
+  goal      String?
+  
+  tasks     Task[]
+  
+  startDate DateTime     @map("start_date")
+  endDate   DateTime     @map("end_date")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([status])
+  @@map("sprints")
+}
+
+model Comment {
+  id       String   @id @default(uuid())
+  content  String
+  taskId   String   @map("task_id")
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId String   @map("author_id")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([taskId])
+  @@map("comments")
+}
+
+model Activity {
+  id       String   @id @default(uuid())
+  action   String   // e.g., "status_changed", "assigned", "commented"
+  taskId   String   @map("task_id")
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId   String   @map("user_id")
+  metadata Json?    // { from: "TODO", to: "IN_PROGRESS" }
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([taskId])
+  @@index([userId])
+  @@map("activities")
+}
+
+// Counter for task identifiers
+model Counter {
+  id        String @id @default(uuid())
+  projectId String @unique @map("project_id")
+  prefix    String @default("NF")
+  value     Int    @default(0)
+
+  @@map("counters")
+}
